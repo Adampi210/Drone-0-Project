@@ -12,7 +12,7 @@
 // Then it writes a message to that register and ends transmission
 #define write_msg_register(reg, msg) do { \
   Wire.beginTransmission(GYRO_ADDR);      \
-  Wire.write(reg);                        \  
+  Wire.write(reg);                        \
   Wire.write(msg);                        \
   Wire.endTransmission();                 \
 } while(false)
@@ -32,7 +32,7 @@ long gyro_calibration_error[3] = {};  // Array of calibration errors for the gyr
 long accel_calibration_error[3] = {}; // Array of calibration errors for the accelerometer
 long gyro_values_arr[3] = {};         // Array of the measurements from the gyro (x, y, z axes respectively)
 long accel_values_arr[3] = {};        // Array of acceleration values (x, y, z axes respectively)
-double accel_mag;                         // Magnitude of the total acceleration
+long accel_mag;                       // Magnitude of the total acceleration
 double yaw_rate_callibration_error = 0;   // calibration error for the calculated yaw rate value
 double yaw_rate_gyro = 0;                 // calculated value of the yaw rate
 double pitch_accel, roll_accel;           // Acceleration value for pitch and roll angles
@@ -75,11 +75,10 @@ void calibrate_gyro() {
   gyro_calibration_error[0] /= 2000;
   gyro_calibration_error[1] /= 2000;
   gyro_calibration_error[2] /= 2000;
-  for(int i = 0; i < 3; ++i) {
-    Serial.println(gyro_calibration_error[i]);
-  }
-}
+  
 
+}
+/* // NOT USED
 // This function calibrates the accelerometer by making a number of measurements and taking their average
 void calibrate_accel() {
   // Take 2000 measurements and add them
@@ -94,7 +93,7 @@ void calibrate_accel() {
   accel_calibration_error[0] /= 2000;
   accel_calibration_error[1] /= 2000;
 }
-
+*/
 // This function calculates the calibration error for the yaw rate
 void calibrate_gyro_yaw() {
   // Get 100 values
@@ -113,6 +112,7 @@ void calibrate_gyro_yaw() {
   yaw_rate_callibration_error /= 100;
 }
 
+// This function calculates pitch and roll angles, as well as yaw change rate
 void calculate_angles(double* angle_array) {
   // Request 6 bytes from register 0x43 used to calculate the angle
   request_bytes_register(0x43, 6);
@@ -128,7 +128,7 @@ void calculate_angles(double* angle_array) {
   accel_values_arr[2] = Wire.read() << 8 | Wire.read(); // z
 
   // Calculate the yaw rate with smoothing and reduced by calibration
-  yaw_rate_gyro = 0.8 * yaw_rate_gyro + ((double) gyro_values_arr[2] / LSB_SENSITIVITY) * 0.2 - yaw_rate_callibration_error;
+  yaw_rate_gyro = 0.8 * yaw_rate_callibration_error + ((double) gyro_values_arr[2] / LSB_SENSITIVITY) * 0.2 - yaw_rate_callibration_error;
   
   // Gyro angle calculations
   // First add how much the angle changed over time
@@ -142,11 +142,11 @@ void calculate_angles(double* angle_array) {
 
   // Accelerometer angle calculations
   // First calculate total acceleration magnitude = root of all the axes values squared
-  accel_mag = sqrt(pow(accel_values_arr[0], 2) + pow(accel_values_arr[1], 2) + pow(accel_values_arr[1], 2));
+  accel_mag = sqrt(accel_values_arr[0] * accel_values_arr[0] + accel_values_arr[1] * accel_values_arr[1] + accel_values_arr[2] * accel_values_arr[2]);
   // Calculate pitch and roll acceleration in degrees
   pitch_accel = asin((double)accel_values_arr[0] / accel_mag) * 180 / PI;
   roll_accel = asin((double)accel_values_arr[1] / accel_mag) * -180 / PI;
-
+  
   if(first_measurement) {
     // If it's a first measurement, set pitch and roll angles to be equal to acceleration
     real_pitch = pitch_accel;

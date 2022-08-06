@@ -1,4 +1,7 @@
-// This tab contains function used for radio communication
+/* 
+ * This tab contains function used for radio communication. The module I used
+ * was nRF24L01+.
+ */
 // Variables
 uint16_t data_received[DATA_RECEV_SIZE];       // Array of received values from the controller
 const byte receiver_address[14] = {'a','X','6','L','$','C','Y','7','9','1','h','D','*','%'}; // address of the receiver (transmitter finds a module with that address and sends the data there)
@@ -28,7 +31,5 @@ void receive_data(uint16_t* data_array, RF24 radio_module) {
     data_array[6] = data_received[6]; // Controller Switch
     data_array[7] = data_received[7]; // Right joystick button
     data_array[8] = data_received[8]; // Left joystick button
-
-    Serial.println(data_received[0]);
   }
 }

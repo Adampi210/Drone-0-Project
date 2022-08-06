@@ -7,11 +7,12 @@
 #include <nRF24L01.h> // Constants radio module library
 #include <RF24.h>     // Radio communication library
 #include <Wire.h>     // Two wire (I2C) library for communication with the second arduino
-#include <MS5611.h>   // Barometer library
+#include "MS5611.h"   // Barometer library
 
 // Definitions
 #define MOTOR_CONTROL_ADDR 0x09 // Address of the motor controller module (second microcontroller)
 #define GYRO_ADDR 0x68 // Address of the gyroscope
+#define BARO_ADDR 0x77 // Address of the barometer
 
 // Define pins used to communicate with the radio module
 #define CE_PIN 9
@@ -23,58 +24,57 @@
 RF24 radio_receiver(CE_PIN, CSN_PIN); // Radio receiver module object
 
 // Barometer variables
-MS5611 barometer_sensor; // Barometer sensor object
-uint32_t raw_temp;       // temperature reading from the barometer
-uint32_t raw_press;      // pressure reading from the barometer
+MS5611 barometer_sensor(BARO_ADDR); // Barometer sensor object
+double raw_press;                   // pressure reading from the barometer
 
 // Gyroscope variables
+double calculated_angles[3];   // Array of angles calculated from the IMU
 
 // Data variables
-uint16_t all_data[21]; // All data read from sensors, controller, etc.
-uint8_t data_to_motor_ctr[21]; // Data to be sent to the motor controller (as byte chunks)
-double calculated_angles[3];   // Array of angles calculated from the IMU
+uint16_t radio_data[DATA_RECEV_SIZE]; // data received from the radio controller module
+
 // Time variables
-unsigned long current_time;
-unsigned long previous_time, previous_time_angle_calc; 
-unsigned long time_interval_angle_calc = 4000;
+unsigned long current_time; // Current time in the loop in microseconds
+unsigned long previous_time_angle_calc, previous_time_baro; // previous time variables used to run independent conditions
+unsigned long time_interval_angle_calc = 4000; // Interval that the angle calculation runs on (4ms)
+unsigned long time_interval_baro_meas = 10000; // Interval that the pressure measurement runs on (10ms)
 
 void setup() {
   // Initiate I2C communication
   Wire.begin();
-
   Serial.begin(115200);
-
   // Initialize the receiver
   init_receiver(radio_receiver);
-  Serial.println("init_receiver done");
+
   // Initialize the IMU
   gyro_init_config();
-  Serial.println("gyro_init_config done");
   calibrate_gyro();
-  Serial.println("calibrate_gyro done");
-  while(1);
-  calibrate_accel();
-  Serial.println("calibrate_accel done");
   calibrate_gyro_yaw();
-  Serial.println("calibrate_gyro_yaw done");
-
   
+  // Initialize the barometer
+  baro_init(barometer_sensor);
+  
+  raw_press = get_average_pressure(barometer_sensor); // get the initial pressure measurement
 }
 
 void loop() {
-  current_time = micros();
+  current_time = micros(); // get current time since starting the program
   
-  receive_data(all_data, radio_receiver);
-  
+  receive_data(radio_data, radio_receiver); // receive the radio data
+
+  // Every 4ms calculate the angles and send that data to the second device
   if(current_time - previous_time_angle_calc >= time_interval_angle_calc) {
     previous_time_angle_calc = current_time;
     calculate_angles(calculated_angles);
-    Serial.print("Pitch: ");
-    Serial.print(calculated_angles[0]);
-    Serial.print(" Roll: ");
-    Serial.print(calculated_angles[1]);
-    Serial.print(" Yaw rate: ");
-    Serial.print(calculated_angles[2]);
+    
+  }
+
+ // Every 10ms calculate and save the pressure
+ if(current_time - previous_time_baro >= time_interval_baro_meas) {
+    previous_time_baro = current_time;
+    // Calculate the raw_pressure with smoothing
+    raw_press = 0.98 * raw_press + 0.02 * baro_get_pressure(barometer_sensor);
+    Serial.println(raw_press);
   }
 
 }
