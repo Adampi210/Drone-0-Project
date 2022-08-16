@@ -75,25 +75,8 @@ void calibrate_gyro() {
   gyro_calibration_error[0] /= 2000;
   gyro_calibration_error[1] /= 2000;
   gyro_calibration_error[2] /= 2000;
-  
+}
 
-}
-/* // NOT USED
-// This function calibrates the accelerometer by making a number of measurements and taking their average
-void calibrate_accel() {
-  // Take 2000 measurements and add them
-  for(int i = 0; i < 2000; ++i) {
-    // Request 4 bytes from register 0x3B which will be used to calculate the calibration values
-    request_bytes_register(0x3B, 4);
-    // Calculate the values and add them to the total sum
-    accel_calibration_error[0] += Wire.read() << 8 | Wire.read(); // Calculate x acceleration
-    accel_calibration_error[1] += Wire.read() << 8 | Wire.read(); // Calculate y acceleration
-  }
-  // Divide by 2000 to get the average
-  accel_calibration_error[0] /= 2000;
-  accel_calibration_error[1] /= 2000;
-}
-*/
 // This function calculates the calibration error for the yaw rate
 void calibrate_gyro_yaw() {
   // Get 100 values

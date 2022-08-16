@@ -42,7 +42,7 @@ unsigned long time_interval_baro_meas = 10000; // Interval that the pressure mea
 void setup() {
   // Initiate I2C communication
   Wire.begin();
-  Serial.begin(115200);
+
   // Initialize the receiver
   init_receiver(radio_receiver);
 
@@ -52,9 +52,8 @@ void setup() {
   calibrate_gyro_yaw();
   
   // Initialize the barometer
-  baro_init(barometer_sensor);
-  
-  raw_press = get_average_pressure(barometer_sensor); // get the initial pressure measurement
+  baro_init(&barometer_sensor);
+  raw_press = get_average_pressure(&barometer_sensor); // get the initial pressure measurement
 }
 
 void loop() {
@@ -65,16 +64,14 @@ void loop() {
   // Every 4ms calculate the angles and send that data to the second device
   if(current_time - previous_time_angle_calc >= time_interval_angle_calc) {
     previous_time_angle_calc = current_time;
-    calculate_angles(calculated_angles);
-    
+    calculate_angles(calculated_angles); // Calculate all the angles
+    send_data_to_peri(radio_data, calculated_angles, raw_press); // Send the data to the peripheral device
   }
 
  // Every 10ms calculate and save the pressure
  if(current_time - previous_time_baro >= time_interval_baro_meas) {
     previous_time_baro = current_time;
     // Calculate the raw_pressure with smoothing
-    raw_press = 0.98 * raw_press + 0.02 * baro_get_pressure(barometer_sensor);
-    Serial.println(raw_press);
+    raw_press = 0.8 * raw_press + 0.2 * baro_get_pressure(&barometer_sensor);
   }
-
 }
