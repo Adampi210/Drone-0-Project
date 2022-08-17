@@ -7,12 +7,10 @@
 #include <nRF24L01.h> // Constants radio module library
 #include <RF24.h>     // Radio communication library
 #include <Wire.h>     // Two wire (I2C) library for communication with the second arduino
-#include "MS5611.h"   // Barometer library
 
 // Definitions
 #define MOTOR_CONTROL_ADDR 0x09 // Address of the motor controller module (second microcontroller)
 #define GYRO_ADDR 0x68 // Address of the gyroscope
-#define BARO_ADDR 0x77 // Address of the barometer
 
 // Define pins used to communicate with the radio module
 #define CE_PIN 9
@@ -22,10 +20,6 @@
 // Variables
 // Radio module variables
 RF24 radio_receiver(CE_PIN, CSN_PIN); // Radio receiver module object
-
-// Barometer variables
-MS5611 barometer_sensor(BARO_ADDR); // Barometer sensor object
-double raw_press;                   // pressure reading from the barometer
 
 // Gyroscope variables
 double calculated_angles[3];   // Array of angles calculated from the IMU
@@ -51,9 +45,6 @@ void setup() {
   calibrate_gyro();
   calibrate_gyro_yaw();
   
-  // Initialize the barometer
-  baro_init(&barometer_sensor);
-  raw_press = get_average_pressure(&barometer_sensor); // get the initial pressure measurement
 }
 
 void loop() {
@@ -65,13 +56,6 @@ void loop() {
   if(current_time - previous_time_angle_calc >= time_interval_angle_calc) {
     previous_time_angle_calc = current_time;
     calculate_angles(calculated_angles); // Calculate all the angles
-    send_data_to_peri(radio_data, calculated_angles, raw_press); // Send the data to the peripheral device
-  }
-
- // Every 10ms calculate and save the pressure
- if(current_time - previous_time_baro >= time_interval_baro_meas) {
-    previous_time_baro = current_time;
-    // Calculate the raw_pressure with smoothing
-    raw_press = 0.8 * raw_press + 0.2 * baro_get_pressure(&barometer_sensor);
+    send_data_to_peri(radio_data, calculated_angles); // Send the data to the peripheral device
   }
 }

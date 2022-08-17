@@ -2,7 +2,7 @@
  * This module contains functions for communicating with the controller device.
  */
 
-#define ARRAY_RECEIV_SIZE 22 // Size of the array of received data (differs from the sent data because the values are converted)
+#define ARRAY_RECEIV_SIZE 18 // Size of the array of received data (differs from the sent data because the values are converted)
 
 // This function reads the data from the controller device and saves it into an array
 void receive_data_from_ctrl(int* data_array) {
@@ -23,13 +23,19 @@ void receive_data_from_ctrl(int* data_array) {
     data_array[i] = Wire.read();
   }
 
-  // Read pressure data
-  for(int i = 18; i < 22; ++i) {
-    data_array[i] = Wire.read();
-  }
 }
 
-// TODO
-void convert_data(int* data_array, uint16_t* radio_data, double* angle_data, double* pressure_data) {
-  
-}
+// This function reads the data from an array and saves it into various variables that are easier to read and use
+void convert_data(int* data_array, uint16_t* radio_data, double* angle_data) {
+  // Saving the radio data
+  for(int i = 0; i < 9; ++i) {
+    radio_data[i] = data_array[i];
+  }
+  // Saving the angle data
+  // First parenthesis checks if the data_array[3 * i + 9] is 1, if it is then multiplier is 1 (positive angle), otherwise its -1 (negative angle)
+  // This is reversed compared to what was sent because I felt it describes the situation better
+  // Second parenthesis combines the data into a floating point number corresponding to the angle
+  for(int i = 0; i < 3; ++i) {
+    angle_data[i] = (double)((data_array[3 * i + 9] ? -1 : 1) * ((double)(data_array[3 * i + 10] * 100 + data_array[3 * i + 11])) / 100);
+  }
+}  

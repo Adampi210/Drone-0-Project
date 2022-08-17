@@ -28,7 +28,7 @@ float servo_position;                             // PWM signal storing position
 // Time variables
 unsigned long current_time; // Current time in the loop in microseconds
 unsigned long previous_time_motors; // previous time variable used to run motors
-unsigned long time_interval_motors = 4000; // Interval that the motors loop runs on (4ms)
+unsigned long time_interval_motors = 1000; // Interval that the motors loop runs on (4ms)
 
 
 void setup() {

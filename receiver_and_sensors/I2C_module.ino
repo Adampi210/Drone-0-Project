@@ -1,9 +1,9 @@
 /*
  * This module contains functions for communicating with the peripheral device.
  */
-#define ARRAY_SEND_SIZE 28 // Size of the array of data that will be sent
+#define ARRAY_SEND_SIZE 24 // Size of the array of data that will be sent
 
-void send_data_to_peri(uint16_t* radio_data, double* angle_data, double pressure_data) {
+void send_data_to_peri(uint16_t* radio_data, double* angle_data) {
   uint8_t array_to_send[ARRAY_SEND_SIZE]; // Array of values to send. The values must be Bytes so I need to convert them into a useful form
 
   // Radio data conversion and saving
@@ -28,13 +28,6 @@ void send_data_to_peri(uint16_t* radio_data, double* angle_data, double pressure
     array_to_send[3 * i + 16] = abs((int)angle_data[i]);               // First part of the angle (two first digits)
     array_to_send[3 * i + 17] = abs((int)(angle_data[i] * 100)) % 100; // Second part of the angle
   }
-
-  // Pressure data conversion and saving
-  // I use 4 digits after the comma, and the rest of the pressure digits before it
-  array_to_send[24] = (int)(pressure_data * 10000) % 100; // Last 2 digits after the comma  XXXX.XXAA
-  array_to_send[25] = (int)(pressure_data * 100) % 100;        // First 2 digits after the comma XXXX.AAXX
-  array_to_send[26] = ((int)pressure_data) % 100;         // Last 2 digits before the comma XXAA.XXXX
-  array_to_send[27] = ((int)pressure_data) / 100;         // First 2 digits before the comma AAXX.XXXX
 
   // Send all the data to the peripheral device using I2C
   Wire.beginTransmission(MOTOR_CONTROL_ADDR);

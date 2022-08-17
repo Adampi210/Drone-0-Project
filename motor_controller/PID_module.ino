@@ -13,7 +13,11 @@
  *  ESC_1, ESC_2 rotate clockwise
  *  ESC_3, ESC_4 rotate counter-clockwise
  *  These are named this way because the first two and last two have the same
- *  rotation direction
+ *  rotation direction.
+ *  The angles: 
+ *    Pitch: when front goes down pitch is positive, when front goes up its negative
+ *    Roll: Looking from the back of the drone in the direction of the front turning clockwise is positive, counter-clockwise is negative
+ *    Yaw rate: Looking from the top of the drone down on it, the clockwise turn is positive and the counterclockwise is negative
  */
 
 // TODO: check angles and errors (how they are calculated)
@@ -25,14 +29,12 @@
 // Data
 double desired_pitch = 0, desired_roll = 0, desired_yaw_rate = 0; // Desired values of pitch, roll, and yaw rate sent from the controller
 double angle_pitch, angle_roll, yaw_rate; // Actual values of pitch, roll and yaw read from the sensors
-double desired_alt; // Desired altitude sent from the controller that the drone should maintain
-double actual_alt;  // Actual altitude read from the barometer
+double angle_data_array[3];   // Array of angles sent from the control device
+uint16_t radio_data_array[9]; // Radio data from the control device
 
 // PID calculation
 double error_pitch, error_roll, error_yaw_rate; // Error values (difference between desired and actual) for the pitch, roll, and yaw rate
 double prev_error_pitch, prev_error_roll, prev_error_yaw_rate; // Previous values of the errors used in PID calculation (for calculating the D factor)
-double error_alt; // Error value of the altitude (difference between current and desired altitude)
-double prev_error_alt; // Previous error value of the altitude used for kd calculation
 // Pitch values
 double pid_p_pitch, pid_i_pitch,  pid_d_pitch; // Calculated P, I, and D values for the pitch
 double kp_pitch = 0; // kp, ki, kd values for pitch that specify how much each error is worth in the PID error calculation
@@ -48,14 +50,10 @@ double pid_p_yaw, pid_i_yaw,  pid_d_yaw; // Calculated P, I, and D values for th
 double kp_yaw = 0; // kp, ki, kd values for yaw rate that specify how much each error is worth in the PID error calculation
 double ki_yaw = 0;
 double kd_yaw = 0;
-// Altitude values
-double pid_p_alt, pid_i_alt,  pid_d_alt; // Calculated P, I, and D values for the altitude
-double kp_alt = 0; // kp, ki, kd values for altitude that specify how much each error is worth in the PID error calculation
-double ki_alt = 0;
-double kd_alt = 0;
-// Total PID values
-double PID_pitch, PID_roll, PID_yaw_rate, PID_alt; // PID values calculated for pitch, roll, yaw rate, and the altitude
 
+// Total PID values
+double PID_pitch, PID_roll, PID_yaw_rate; // PID values calculated for pitch, roll, and the yaw rate
+double esc1_pwm = 1000, esc2_pwm = 1000, esc3_pwm = 1000, esc4_pwm = 1000; // PWM values that set the speed of each motors
 // Time variables
 unsigned long current_time_PID = 0; // Current time in the loop in microseconds
 unsigned long previous_time_PID; // Previous time variables used to run independent conditions
@@ -67,7 +65,20 @@ void calculate_pid_set_values(Servo esc_1_module, Servo esc_2_module, Servo esc_
   current_time_PID = micros(); // Measure the current time, this will stay the same until next time this function is called, so it will be saved to previous_time_PID in the next iteration
   time_difference_PID = (current_time_PID - previous_time_PID) / 1000000; // Calculate the time difference in s between previous and this function call
 
-  // Get the current data TODO
+  // Get the current data
+  convert_data(data_array, radio_data_array, angle_data_array);
+  // Save the angle values
+  angle_pitch = angle_data_array[0];
+  angle_roll = angle_data_array[1];
+  yaw_rate = angle_data_array[2];
+  
+  desired_pitch = map(radio_data_array[4], 5, 1014, -10, 10); // Map right joystick y to correspond to angles from -7 to 7 degrees
+  desired_roll = map(radio_data_array[5], 5, 1014, -10, 10); // Map right joystick x to correspond to angles from -7 to 7 degrees
+  desired_yaw_rate = map(radio_data_array[3], 0, 1020, -3, 3); // Map left joystick x to correspond to angle rates from -3 to 3 degrees/s
+
+  Serial.print(angle_roll);  
+  Serial.print("  ");  
+  Serial.println(desired_yaw_rate);  
 
   // PID pitch calculation
   error_pitch = angle_pitch - desired_pitch; // Calculate error for pitch as difference between actual and desired values
@@ -91,6 +102,51 @@ void calculate_pid_set_values(Servo esc_1_module, Servo esc_2_module, Servo esc_
   }
 
   // PID roll calculation
+  error_roll = angle_roll - desired_roll; // Calculate error for roll as difference between actual and desired values
+  pid_p_roll = kp_roll * error_roll;  // Calculate the proportional error (P value) for roll as kp (some scaling factor) times the error
+  // If the error is small enough calculate the integral error (I value)
+  // Calculate the error by incrementing it by some factor times current error
+  if(error_roll > I_ERROR_CALC_TH * -1 && error_roll < I_ERROR_CALC_TH) {
+    pid_i_roll += ki_roll * error_roll;
+  }
+  // Calculate the derivative error (D value) by taking the difference between current and previous errors and dividing it by the time (first time derivative) (multiplied by factor kd)
+  pid_d_roll = kd_roll * (error_roll - prev_error_roll) / time_difference_PID;
+  prev_error_roll = error_roll; // Save the current error as the previous error for roll
+  // Calculate the PID for roll as the sum of P I and D parts
+  PID_roll = pid_p_roll + pid_i_roll + pid_d_roll;
+  // Also limit the PID values to a set min/max value so that it doesn't spiral out of control
+  if(PID_roll < -1 * MAX_PID_VALUE) {
+    PID_roll = -1 * MAX_PID_VALUE;
+  }
+  if(PID_roll > MAX_PID_VALUE) {
+    PID_roll = MAX_PID_VALUE;
+  }
+
+  // PID yaw rate calculation
+  error_yaw_rate = yaw_rate - desired_yaw_rate; // Calculate error for yaw rate as difference between actual and desired values
+  pid_p_yaw = kp_yaw * error_yaw_rate;  // Calculate the proportional error (P value) for yaw rate as kp (some scaling factor) times the error
+  // If the error is small enough calculate the integral error (I value)
+  // Calculate the error by incrementing it by some factor times current error
+  if(error_yaw_rate > I_ERROR_CALC_TH * -1 && error_yaw_rate < I_ERROR_CALC_TH) {
+    pid_i_yaw += ki_yaw * error_yaw_rate;
+  }
+  // Calculate the derivative error (D value) by taking the difference between current and previous errors and dividing it by the time (first time derivative) (multiplied by factor kd)
+  pid_d_yaw = kd_yaw * (error_yaw_rate - prev_error_yaw_rate) / time_difference_PID;
+  prev_error_yaw_rate = error_yaw_rate; // Save the current error as the previous error for yaw rate
+  // Calculate the PID for yaw rate as the sum of P I and D parts
+  PID_yaw_rate = pid_p_yaw + pid_i_yaw + pid_d_yaw;
+  // Also limit the PID values to a set min/max value so that it doesn't spiral out of control
+  if(PID_yaw_rate < -1 * MAX_PID_VALUE) {
+    PID_yaw_rate = -1 * MAX_PID_VALUE;
+  }
+  if(PID_yaw_rate > MAX_PID_VALUE) {
+    PID_yaw_rate = MAX_PID_VALUE;
+  }
   
-  
+  // Motor speed calculation TODO: change set offset
+  esc1_pwm = 1500 + PID_pitch - PID_roll + PID_yaw_rate;
+  esc2_pwm = 1500 - PID_pitch + PID_roll + PID_yaw_rate;
+  esc3_pwm = 1500 - PID_pitch - PID_roll - PID_yaw_rate;
+  esc4_pwm = 1500 + PID_pitch + PID_roll - PID_yaw_rate;
+
 }
