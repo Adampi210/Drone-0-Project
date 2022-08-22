@@ -30,7 +30,7 @@ uint16_t radio_data[DATA_RECEV_SIZE]; // data received from the radio controller
 // Time variables
 unsigned long current_time; // Current time in the loop in microseconds
 unsigned long previous_time_angle_calc, previous_time_baro; // previous time variables used to run independent conditions
-unsigned long time_interval_angle_calc = 4000; // Interval that the angle calculation runs on (4ms)
+unsigned long time_interval_angle_calc = 2000; // Interval that the angle calculation runs on (2ms)
 unsigned long time_interval_baro_meas = 10000; // Interval that the pressure measurement runs on (10ms)
 
 void setup() {
@@ -52,7 +52,7 @@ void loop() {
   
   receive_data(radio_data, radio_receiver); // receive the radio data
 
-  // Every 4ms calculate the angles and send that data to the second device
+  // Every 2ms calculate the angles and send that data to the second device
   if(current_time - previous_time_angle_calc >= time_interval_angle_calc) {
     previous_time_angle_calc = current_time;
     calculate_angles(calculated_angles); // Calculate all the angles

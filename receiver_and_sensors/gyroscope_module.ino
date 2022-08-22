@@ -4,7 +4,7 @@
  * Gyro used: MPU6050 https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet1.pdf
  * Register map: https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Register-Map1.pdf
  */
-#define LOOP_FREQ 250 // Frequency at which the angles will be calculated in the main loop
+#define LOOP_FREQ 500 // Frequency at which the angles will be calculated in the main loop
 #define LSB_SENSITIVITY 65.5 // Value used for scaling when calculating angle values
 
 // This macro writes a specified message msg to a reg register of the MPU6050
@@ -138,12 +138,12 @@ void calculate_angles(double* angle_array) {
   }
   else {
     // Otherwise just correct the drift with the acceleration
-    real_pitch = real_pitch * 0.94 + pitch_accel * 0.06;
-    real_roll = real_roll * 0.94 + roll_accel * 0.06;
+    real_pitch = real_pitch * 0.995 + pitch_accel * 0.005;
+    real_roll = real_roll * 0.995 + roll_accel * 0.005;
   }
   // Finally, dampen pitch and roll angles
-  angle_pitch = angle_pitch * 0.9 + real_pitch * 0.1;
-  angle_roll = angle_roll * 0.9 + real_roll * 0.1;
+  angle_pitch = angle_pitch * 0.7 + real_pitch * 0.3;
+  angle_roll = angle_roll * 0.7 + real_roll * 0.3;
 
   // Finally write calculated values into the array
   angle_array[0] = angle_pitch; 

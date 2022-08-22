@@ -18,6 +18,7 @@
 // Variables
 // Sensor and controller data
 int all_data[DATA_SIZE] = {};
+bool data_received = false;
 
 // Motors and servo
 Servo esc_1, esc_2, esc_3, esc_4; // Each esc_x variable corresponds to each motor 
@@ -27,9 +28,9 @@ float servo_position;                             // PWM signal storing position
 
 // Time variables
 unsigned long current_time; // Current time in the loop in microseconds
-unsigned long previous_time_motors; // previous time variable used to run motors
-unsigned long time_interval_motors = 1000; // Interval that the motors loop runs on (4ms)
-
+unsigned long previous_time_motors, previous_time_camera; // previous time variables used to run motors and turn the camera
+unsigned long time_interval_motors = 4000; // Interval that the motors loop runs on (4ms)
+unsigned long time_interval_camera = 4000; // Interval that the camera turns at
 
 void setup() {
   delay(100); // First delay to let everything else start running
@@ -53,7 +54,7 @@ void setup() {
   esc_4.writeMicroseconds(1000);
 
   // Write initial camera position
-  servo_cam.write(75);
+  servo_cam.write(10);
 
   delay(7000); // Delay for 7s to allow the motors finish their set up procedure
 
@@ -64,15 +65,22 @@ void setup() {
 void loop() {
   current_time = micros(); // get current time since starting the program
 
-  if(current_time - previous_time_motors >= time_interval_motors) {
-    previous_time_motors = current_time;
+  // Every time_interval_motors calculate pid and set new calculated PWM values to ESCs
+  if(data_received) {
+    data_received = false;
     calculate_pid_set_values(esc_1, esc_2, esc_3, esc_4, all_data);
   }
-
+  
+  // Every time_interval_camera set position of the camera using the right potentiometer
+  if(current_time - previous_time_camera >= time_interval_camera) {
+    previous_time_camera = current_time;
+    move_camera(servo_cam, all_data[0]);
+  }
 }
 
 // This function receives the data from the controller device and calls another function that writes it into an array
 // It is run every time a receive event is detected (data has been received from the controller device)
 void receive_event() {
   receive_data_from_ctrl(all_data); // call the function to write values into an array
+  data_received = true;
 }
